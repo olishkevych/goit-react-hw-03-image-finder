@@ -4,18 +4,6 @@ import PropTypes from 'prop-types';
 import css from './Modal.module.css';
 
 class Modal extends React.Component {
-  handleKeyDown = event => {
-    if (event.code === 'Escape') {
-      this.props.onCloseModal();
-    }
-  };
-
-  handleOverlayClick = event => {
-    if (event.currentTarget === event.target) {
-      this.props.onCloseModal();
-    }
-  };
-
   componentDidMount() {
     this.scrollPosition = window.scrollY;
     window.addEventListener('keydown', this.handleKeyDown);
@@ -29,6 +17,18 @@ class Modal extends React.Component {
     document.body.style.overflow = 'auto';
     window.scrollTo(0, this.scrollPosition);
   }
+
+  handleKeyDown = event => {
+    if (event.code === 'Escape') {
+      this.props.onCloseModal();
+    }
+  };
+
+  handleOverlayClick = event => {
+    if (event.currentTarget === event.target) {
+      this.props.onCloseModal();
+    }
+  };
 
   render() {
     return (

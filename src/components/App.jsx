@@ -1,5 +1,5 @@
 import React from 'react';
-import { Oval } from 'react-loader-spinner';
+
 import { ToastContainer, toast } from 'react-toastify';
 
 import { SearchBar } from './Searchbar/Searchbar';
@@ -11,135 +11,99 @@ import { fetchImages } from '../services/api/fetch';
 import css from './App.module.css';
 import 'react-toastify/dist/ReactToastify.css';
 import Modal from './Modal/Modal';
-
-const toastConfig = {
-  position: 'top-right',
-  autoClose: 1500,
-  hideProgressBar: false,
-  closeOnClick: true,
-  pauseOnHover: true,
-  draggable: true,
-  progress: undefined,
-  theme: 'colored',
-};
+import { toastConfig } from 'services/toastify/toastConfig';
+import { Loader } from './Loader/Loader';
 
 export class App extends React.Component {
   state = {
-    searchText: null,
+    searchText: '',
     images: [],
-    totalHits: null,
+    totalHits: 0,
     error: null,
-    page: 1,
-    totalPages: 1,
+    page: 0,
     modal: { isOpen: false, selectedImage: null },
     isLoading: false,
-    options: {
-      image_type: 'photo',
-      orientation: 'horizontal',
-      safesearch: true,
-      per_page: 18,
-    },
-  };
-
-  onOpenModal = selectedImage => {
-    this.setState({ modal: { modalIsOpen: true, selectedImage } });
-  };
-
-  onCloseModal = () => {
-    this.setState({ modal: { modalIsOpen: false, selectedImage: null } });
-  };
-
-  onSubmit = event => {
-    event.preventDefault();
-    if (event.target.searchText.value) {
-      const searchText = event.target.searchText.value;
-      this.setState({ searchText, page: 1, totalPages: 1, images: [] });
-      event.target.searchText.value = '';
-    } else {
-      toast.error('Please enter a search term', toastConfig);
-    }
   };
 
   async componentDidUpdate(prevProps, prevState) {
-    if (prevState.searchText !== this.state.searchText) {
+    const { searchText, page } = this.state;
+    if (prevState.searchText !== searchText || prevState.page !== page) {
       this.handleFetchRequest();
     }
   }
+
+  onSubmit = query => {
+    if (this.state.searchText === query) {
+      toast.warning('Search results are already displayed');
+      return;
+    }
+    this.setState({ searchText: query, page: 1, images: [] });
+  };
+
+  handleBtnClick = () => {
+    this.setState(prevState => {
+      return { page: prevState.page + 1 };
+    });
+  };
 
   async handleFetchRequest() {
     try {
       this.setState({ isLoading: true });
 
-      const response = (
-        await fetchImages(
-          this.state.searchText,
-          this.state.page,
-          this.state.options
-        )
-      ).data;
-      const totalHits = response.totalHits;
-      const images = response.hits;
-      if (images.length === 0) {
+      const { totalHits, hits: images } = await fetchImages(
+        this.state.searchText,
+        this.state.page
+      );
+
+      if (!totalHits) {
         toast.warning(`No images found`, toastConfig);
+        return;
       }
 
-      if (this.state.page === 1 && totalHits > 0) {
+      if (this.state.page === 1) {
         toast.success(`We've found ${totalHits} images`, toastConfig);
-        const totalPages = totalHits / this.state.options.per_page;
-        this.setState({ images, totalHits, totalPages });
-      } else {
-        this.setState(prevState => ({
-          images: [...prevState.images, ...images],
-        }));
       }
+
+      this.setState(prevState => ({
+        images: [...prevState.images, ...images],
+        totalHits,
+      }));
     } catch (error) {
-      this.setState({ error });
+      this.setState({ error: error.message });
     } finally {
       this.setState({ isLoading: false });
     }
   }
 
-  handleBtnClick = () => {
-    this.setState(prevState => {
-      return { page: prevState.page + 1 };
-    }, this.handleFetchRequest);
+  onOpenModal = selectedImage => {
+    this.setState({ modal: { isOpen: true, selectedImage } });
+  };
+
+  onCloseModal = () => {
+    this.setState({ modal: { isOpen: false, selectedImage: null } });
   };
 
   render() {
+    const { isLoading, images, totalHits, modal } = this.state;
     return (
       <div className={css.App}>
         <ToastContainer />
         <SearchBar onSubmit={this.onSubmit} />
 
-        {this.state.totalHits && (
-          <ImageGallery
-            images={this.state.images}
-            onOpenModal={this.onOpenModal}
-          />
+        {totalHits > 0 && (
+          <ImageGallery images={images} onOpenModal={this.onOpenModal} />
         )}
 
-        {this.state.totalHits && this.state.page < this.state.totalPages && (
+        {!isLoading && images.length !== totalHits && (
           <Button handleBtnClick={this.handleBtnClick} />
         )}
 
-        {this.state.isLoading && (
-          <Oval
-            height={80}
-            width={80}
-            color="#4fa94d"
-            wrapperStyle={{}}
-            wrapperClass={css.LoaderWrapper}
-            visible={true}
-            ariaLabel="oval-loading"
-            secondaryColor="#4fa94d"
-            strokeWidth={2}
-            strokeWidthSecondary={2}
-          />
-        )}
-        {this.state.modal.modalIsOpen && (
+        {isLoading && <Loader />}
+
+        {modal.isOpen && (
           <Modal
             onCloseModal={this.onCloseModal}
-            selectedImage={this.state.modal.selectedImage}
+            selectedImage={modal.selectedImage}
           />
         )}
       </div>
